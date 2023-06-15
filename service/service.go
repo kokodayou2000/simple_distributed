@@ -5,25 +5,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"simple_distributed/registry"
 )
 
 // Start ctx 上下文 registerHandlersFunc要注册的方法，返回后注册完之后的上下文
 func Start(ctx context.Context,
-	host, port string, reg registry.Registration,
-	registerHandlersFunc func()) (context.Context, error) {
+	serviceName, host, port string, registerHandlersFunc func()) (context.Context, error) {
 	registerHandlersFunc()
-	ctx = startService(ctx, reg.ServiceName, host, port)
-	// registerService，启动服务之后就注册服务
-	err := registry.RegisterService(reg)
-
-	if err != nil {
-		return ctx, err
-	}
+	ctx = startService(ctx, serviceName, host, port)
 	return ctx, nil
 }
 func startService(ctx context.Context,
-	serviceName registry.ServiceName, host, port string) context.Context {
+	serviceName, host, port string) context.Context {
 	ctx, cancel := context.WithCancel(ctx)
 	var srv http.Server
 	srv.Addr = ":" + port
