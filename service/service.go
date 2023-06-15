@@ -31,6 +31,11 @@ func startService(ctx context.Context,
 	go func() {
 		// if 启动的时候出现了错误，就将打印
 		log.Println(srv.ListenAndServe())
+		// 取消注册
+		err := registry.ShutdownService(fmt.Sprintf("http://%s:%s", host, port))
+		if err != nil {
+			log.Println(err)
+		}
 		// 然后执行取消
 		cancel()
 	}()
@@ -40,6 +45,11 @@ func startService(ctx context.Context,
 		fmt.Printf("%v started. press any key to stop. \n", serviceName)
 		var s string
 		_, _ = fmt.Scanln(&s)
+		err := registry.ShutdownService(fmt.Sprintf("http://%s:%s", host, port))
+		if err != nil {
+			log.Println(err)
+		}
+
 		_ = srv.Shutdown(ctx)
 		cancel()
 	}()
