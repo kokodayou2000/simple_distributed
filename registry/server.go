@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,7 +14,7 @@ const ServicesURL = "http://localhost" + ServerPort + "/services"
 
 type registry struct {
 	registrations []Registration
-	mutex         *sync.Mutex
+	mutex         *sync.RWMutex
 }
 
 // 注册
@@ -21,6 +22,46 @@ func (r *registry) add(reg Registration) error {
 	r.mutex.Lock()
 	r.registrations = append(r.registrations, reg)
 	r.mutex.Unlock()
+	// 添加依赖请求
+	err := r.sendRequiredServices(reg)
+	return err
+}
+
+func (r *registry) sendRequiredServices(reg Registration) error {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	var p patch
+	// foreach 已经注册的服务
+	for _, serviceReg := range r.registrations {
+		// 需要的服务
+		for _, reqService := range reg.RequiredServices {
+			if serviceReg.ServiceName == reqService {
+				// 添加服务信息
+				p.Added = append(p.Added, patchEntry{
+					Name: serviceReg.ServiceName,
+					URL:  serviceReg.ServiceURL,
+				})
+			}
+		}
+	}
+	// send patch
+	err := r.sendPatch(p, reg.ServiceUpdateURL)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// sendPatch 向指定的url发送patch
+func (r *registry) sendPatch(p patch, url string) error {
+	d, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	_, err = http.Post(url, "application/json", bytes.NewBuffer(d))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -39,7 +80,7 @@ func (r *registry) remove(url string) error {
 
 var reg = registry{
 	registrations: make([]Registration, 0),
-	mutex:         new(sync.Mutex),
+	mutex:         new(sync.RWMutex),
 }
 
 // RegistryService 注册服务
